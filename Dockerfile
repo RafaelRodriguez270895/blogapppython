@@ -15,12 +15,11 @@ COPY . .
 # Persistencia (db sqlite)
 RUN mkdir -p /data
 
-EXPOSE 8000
-
+# Entrypoint: auto-init db + seed (modo demo)
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-# gunicorn "clásico"
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "app:app"]
+EXPOSE 8000
 
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "app:app"]

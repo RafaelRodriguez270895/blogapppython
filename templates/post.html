@@ -1,31 +1,53 @@
 {% extends "base.html" %}
 {% block title %}{{ post.title }} - Blog Demo{% endblock %}
 {% block content %}
-  <div class="card">
-    <h2 style="margin-top:0">{{ post.title }}</h2>
-    <div class="muted">{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
-    <p style="white-space: pre-wrap">{{ post.content }}</p>
-  </div>
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <h2 style="margin:0">{{ post.title }}</h2>
+          <span class="badge">{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        </div>
+        <p style="white-space: pre-wrap; margin-top:12px">{{ post.content }}</p>
+      </div>
 
-  <h3>Comentarios</h3>
-  {% for c in comments %}
-    <div class="card">
-      <strong>{{ c.author }}</strong>
-      <div class="muted">{{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
-      <div style="white-space: pre-wrap">{{ c.body }}</div>
+      <div class="card">
+        <h3 style="margin-top:0">Comentarios</h3>
+        {% for c in comments %}
+          <div style="padding:12px; border:1px solid #e5e7eb; border-radius:12px; margin:12px 0; background:#fafafa;">
+            <strong>{{ c.author }}</strong>
+            <div class="muted">{{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+            <div style="white-space: pre-wrap; margin-top:8px">{{ c.body }}</div>
+          </div>
+        {% else %}
+          <p class="muted">Sé el primero en comentar.</p>
+        {% endfor %}
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Deja un comentario</h3>
+        <form method="post">
+          <label>Nombre</label>
+          <input type="text" name="author" placeholder="Tu nombre">
+          <div style="height:10px"></div>
+          <label>Comentario</label>
+          <textarea name="body" placeholder="Escribe algo..."></textarea>
+          <div style="height:10px"></div>
+          <button type="submit">Publicar</button>
+        </form>
+      </div>
     </div>
-  {% else %}
-    <p class="muted">Sé el primero en comentar.</p>
-  {% endfor %}
 
-  <h3>Deja un comentario</h3>
-  <form method="post" class="card">
-    <label>Nombre</label>
-    <input type="text" name="author" placeholder="Tu nombre">
-    <div style="height:10px"></div>
-    <label>Comentario</label>
-    <textarea name="body" placeholder="Escribe algo..."></textarea>
-    <div style="height:10px"></div>
-    <button type="submit">Publicar</button>
-  </form>
+    <aside class="card">
+      <h3 style="margin-top:0">Últimos posts</h3>
+      {% for p in latest %}
+        <div style="margin:10px 0">
+          <a href="{{ url_for('post_view', slug=p.slug) }}">{{ p.title }}</a><br>
+          <span class="muted">{{ p.created_at.strftime("%Y-%m-%d") }}</span>
+        </div>
+      {% endfor %}
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:14px 0">
+      <a href="{{ url_for('index') }}">← Volver al inicio</a>
+    </aside>
+  </div>
 {% endblock %}

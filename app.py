@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, session, abort, flash
@@ -8,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # -----------------------
 # App config (old-school)
 # -----------------------
+# "Hace 10 años": Flask + Jinja + SQLAlchemy, templates simples, sin SPA.
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")  # demo
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
@@ -65,8 +67,20 @@ def simple_slugify(s):
         slug = slug.replace("--", "-")
     return slug.strip("-") or "post"
 
+def get_latest_posts(limit=6):
+    return Post.query.order_by(Post.created_at.desc()).limit(limit).all()
+
+def excerpt(text, n=240):
+    text = (text or "").strip()
+    if len(text) <= n:
+        return text
+    return text[:n].rstrip() + "..."
+
+# Make excerpt available in templates
+app.jinja_env.globals.update(excerpt=excerpt)
+
 # -----------------------
-# Init / seed (manual)
+# CLI: init / seed
 # -----------------------
 @app.cli.command("initdb")
 def initdb():
@@ -83,7 +97,7 @@ def initdb():
         print("Created admin user: admin")
         print("Admin password (from env ADMIN_PASSWORD or default):", pw)
 
-    # sample post
+    # sample post if none
     if Post.query.count() == 0:
         p = Post(
             title="Hola mundo (demo blog)",
@@ -94,13 +108,76 @@ def initdb():
         db.session.commit()
         print("Seeded sample post.")
 
+LOREM = [
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor.",
+    "Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet.",
+    "Duis sagittis ipsum. Praesent mauris. Fusce nec tellus sed augue semper porta. Mauris massa.",
+    "Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.",
+    "Curabitur sodales ligula in libero. Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh.",
+    "Aenean quam. In scelerisque sem at dolor. Maecenas mattis. Sed convallis tristique sem.",
+]
+TITLE_WORDS = ["Rails", "Docker", "Seguridad", "Logs", "Nginx", "AWS", "Kali", "PKI", "TLS", "DevOps", "Auditoría", "Hardening", "Backups", "CI/CD"]
+
+def rand_title():
+    a = random.choice(TITLE_WORDS)
+    b = random.choice(TITLE_WORDS)
+    c = random.choice(TITLE_WORDS)
+    return f"{a}: {b} y {c}"
+
+def rand_body(paragraphs=6):
+    return "\n\n".join(random.choice(LOREM) for _ in range(paragraphs))
+
+@app.cli.command("seed")
+def seed():
+    """Seed posts + comments if DB is almost empty."""
+    os.makedirs("/data", exist_ok=True)
+    db.create_all()
+
+    if Post.query.count() > 3:
+        print("Seed skipped (already has data).")
+        return
+
+    # create a few extra posts
+    for i in range(12):
+        title = rand_title()
+        slug = simple_slugify(title)
+
+        # ensure unique slug
+        base = slug
+        n = 2
+        while Post.query.filter_by(slug=slug).first():
+            slug = f"{base}-{n}"
+            n += 1
+
+        p = Post(
+            title=title,
+            slug=slug,
+            content=rand_body(paragraphs=random.randint(4, 9)),
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(p)
+        db.session.flush()
+
+        # 0-6 comments per post
+        for _ in range(random.randint(0, 6)):
+            c = Comment(
+                post_id=p.id,
+                author=random.choice(["Ana", "Luis", "Carlos", "María", "DevOpsBot", "Guest", "Admin"]),
+                body=rand_body(paragraphs=random.randint(1, 2)),
+            )
+            db.session.add(c)
+
+    db.session.commit()
+    print("Seeded posts and comments.")
+
 # -----------------------
 # Routes (public)
 # -----------------------
 @app.route("/")
 def index():
     posts = Post.query.order_by(Post.created_at.desc()).all()
-    return render_template("index.html", posts=posts)
+    latest = get_latest_posts()
+    return render_template("index.html", posts=posts, latest=latest)
 
 @app.route("/p/<slug>", methods=["GET", "POST"])
 def post_view(slug):
@@ -120,7 +197,8 @@ def post_view(slug):
         return redirect(url_for("post_view", slug=slug))
 
     comments = Comment.query.filter_by(post_id=post.id).order_by(Comment.created_at.asc()).all()
-    return render_template("post.html", post=post, comments=comments)
+    latest = get_latest_posts()
+    return render_template("post.html", post=post, comments=comments, latest=latest)
 
 # -----------------------
 # Auth
@@ -222,5 +300,4 @@ def delete_post(post_id):
 # Main
 # -----------------------
 if __name__ == "__main__":
-    # old-school: flask run / python app.py
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8000")), debug=False)
