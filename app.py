@@ -1,6 +1,9 @@
 import os
 import random
+import sys
+import logging
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 
 from flask import Flask, render_template, request, redirect, url_for, flash, Response
 from flask_sqlalchemy import SQLAlchemy
@@ -10,6 +13,28 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from forms import LoginForm, PostForm, CommentForm, ModerateCommentForm
 
 app = Flask(__name__)
+
+# --- Logging setup (stdout + optional file) ---
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setLevel(LOG_LEVEL)
+stream_handler.setFormatter(logging.Formatter(
+    "[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
+))
+
+app.logger.setLevel(LOG_LEVEL)
+app.logger.handlers = []
+app.logger.addHandler(stream_handler)
+
+if os.environ.get("ENABLE_FILE_LOG", "false").lower() == "true":
+    os.makedirs("/data/logs", exist_ok=True)
+    file_handler = RotatingFileHandler("/data/logs/app.log", maxBytes=2_000_000, backupCount=3)
+    file_handler.setLevel(LOG_LEVEL)
+    file_handler.setFormatter(logging.Formatter(
+        "[%(asctime)s] %(levelname)s: %(message)s"
+    ))
+    app.logger.addHandler(file_handler)
 #db.session.execute(f"SELECT * FROM post WHERE title LIKE '%{q}%'")
 
 # Demo default (típico hallazgo si no se cambia en prod)
@@ -148,6 +173,21 @@ def paginate(query, page, per_page=8):
     return items, page, pages, total
 
 app.jinja_env.globals.update(excerpt=excerpt)
+
+@app.before_request
+def log_request_info():
+    app.logger.info(
+        "REQ %s %s ip=%s ua=%s",
+        request.method,
+        request.path,
+        request.headers.get("X-Forwarded-For", request.remote_addr),
+        (request.headers.get("User-Agent", "-") or "-")[:120],
+    )
+
+@app.after_request
+def log_response_info(response):
+    app.logger.info("RES %s %s status=%s", request.method, request.path, response.status_code)
+    return response
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -403,8 +443,10 @@ def login():
         u = User.query.filter_by(username=username).first()
         if u and check_password_hash(u.password_hash, password):
             login_user(u)
+            app.logger.info("LOGIN_OK user=%s ip=%s", username, request.headers.get("X-Forwarded-For", request.remote_addr))
             flash("Login OK.", "ok")
             return redirect(url_for("admin_posts"))
+        app.logger.warning("LOGIN_FAIL user=%s ip=%s", username, request.headers.get("X-Forwarded-For", request.remote_addr))
         flash("Credenciales inválidas.", "error")
         return redirect(url_for("login"))
     return render_template("login.html", form=form)
@@ -412,6 +454,7 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    app.logger.info("LOGOUT user=%s", getattr(current_user, "username", "unknown"))
     logout_user()
     flash("Sesión cerrada.", "ok")
     return redirect(url_for("index"))
@@ -450,6 +493,7 @@ def admin_new_post():
         p.tags = upsert_tags(tags)
         db.session.add(p)
         db.session.commit()
+        app.logger.info("POST_CREATE user=%s slug=%s status=%s", current_user.username, p.slug, p.status)
         flash("Post creado.", "ok")
         return redirect(url_for("admin_posts"))
     return render_template("admin_edit.html", mode="new", form=form)
@@ -491,6 +535,7 @@ def admin_edit_post(post_id):
         post.updated_at = now_utc()
         post.tags = upsert_tags(tags)
         db.session.commit()
+        app.logger.info("POST_EDIT user=%s post_id=%s slug=%s status=%s", current_user.username, post.id, post.slug, post.status)
 
         flash("Post actualizado.", "ok")
         return redirect(url_for("admin_posts"))
@@ -504,6 +549,7 @@ def admin_delete_post(post_id):
     post.is_deleted = True
     post.updated_at = now_utc()
     db.session.commit()
+    app.logger.warning("POST_DELETE_SOFT user=%s post_id=%s slug=%s", current_user.username, post.id, post.slug)
     flash("Post eliminado (soft delete).", "ok")
     return redirect(url_for("admin_posts"))
 
@@ -524,6 +570,7 @@ def admin_comments():
             db.session.delete(c)
 
         db.session.commit()
+        app.logger.info("COMMENT_MODERATION user=%s action=%s comment_id=%s", current_user.username, action, cid)
         flash("Moderación aplicada.", "ok")
         return redirect(url_for("admin_comments"))
 
@@ -538,6 +585,11 @@ def not_found(e):
 @app.errorhandler(413)
 def too_large(e):
     return render_template("error.html", code=413, message="Request demasiado grande."), 413
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    app.logger.exception("Unhandled exception: %s", str(e))
+    return render_template("error.html", code=500, message="Error interno."), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8000")), debug=False)

@@ -8,6 +8,8 @@ services:
       ADMIN_PASSWORD: "admin123"
       DATABASE_URL: "sqlite:////data/blog.db"
       FLASK_APP: "app.py"
+      LOG_LEVEL: "INFO"
+      ENABLE_FILE_LOG: "true"
     volumes:
       - blogdata:/data
     restart: unless-stopped
