@@ -2,9 +2,6 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, TextAreaField, SelectField, DateTimeField, HiddenField
 from wtforms.validators import DataRequired, Length, Optional
 
-class SearchForm(FlaskForm):
-    q = StringField("Buscar", validators=[Optional(), Length(max=120)])
-
 class LoginForm(FlaskForm):
     username = StringField("Usuario", validators=[DataRequired(), Length(max=80)])
     password = PasswordField("Contraseña", validators=[DataRequired(), Length(max=128)])

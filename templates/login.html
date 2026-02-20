@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Login - Blog Demo{% endblock %}
+{% block title %}Login - Blog Médico{% endblock %}
 {% block content %}
   <div class="card" style="max-width:520px; margin: 0 auto;">
-    <h3 style="margin-top:0">Login</h3>
+    <h2 style="margin-top:0">Login</h2>
+    <div class="meta">Acceso al panel administrativo.</div>
+    <div style="height:10px"></div>
     <form method="post">
       {{ form.csrf_token }}
       <label>Usuario</label>
@@ -11,7 +13,7 @@
       <label>Contraseña</label>
       {{ form.password(placeholder="admin123 (si no cambiaste ADMIN_PASSWORD)") }}
       <div style="height:10px"></div>
-      <button type="submit">Entrar</button>
+      <button class="btn" type="submit">Entrar</button>
     </form>
   </div>
 {% endblock %}

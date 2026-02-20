@@ -3,29 +3,42 @@
   <form method="get" action="{{ url_for('search') }}">
     <input type="text" name="q" placeholder="Buscar..." value="{{ request.args.get('q','') }}">
     <div style="height:10px"></div>
-    <button type="submit">Buscar</button>
+    <button class="btn" type="submit">Buscar</button>
   </form>
 
-  <hr style="border:none; border-top:1px solid #e5e7eb; margin:14px 0">
+  <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0">
 
   <h3 style="margin-top:0">Últimos</h3>
   {% for p in latest %}
     <div style="margin:10px 0">
       <a href="{{ url_for('post_view', slug=p.slug) }}">{{ p.title }}</a><br>
-      <span class="muted">{{ p.publish_at.strftime("%Y-%m-%d") }}</span>
+      <span class="meta">{{ p.publish_at.strftime("%Y-%m-%d") }}</span>
     </div>
   {% endfor %}
 
-  <hr style="border:none; border-top:1px solid #e5e7eb; margin:14px 0">
+  <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0">
 
-  <h3 style="margin-top:0">Tags</h3>
-  <div class="pills">
+  <h3 style="margin-top:0">Archivo</h3>
+  {% if months %}
+    {% for y,m in months %}
+      <div style="margin:6px 0">
+        <a href="{{ url_for('archive', year=y, month=m) }}">{{ y }}-{{ "%02d"|format(m) }}</a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="meta">—</div>
+  {% endif %}
+
+  <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0">
+
+  <h3 style="margin-top:0">Temas</h3>
+  <div>
     {% for t in tag_cloud %}
-      <a href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
+      <a class="tag" href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
     {% endfor %}
   </div>
 
-  <hr style="border:none; border-top:1px solid #e5e7eb; margin:14px 0">
+  <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0">
 
-  <div class="muted"><a href="{{ url_for('feed') }}">RSS feed</a></div>
+  <div class="meta"><a href="{{ url_for('feed') }}">RSS</a></div>
 </aside>

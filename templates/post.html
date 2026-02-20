@@ -1,40 +1,38 @@
 {% extends "base.html" %}
-{% block title %}{{ post.title }} - Blog Demo{% endblock %}
+{% block title %}{{ post.title }} - Blog Médico{% endblock %}
 {% block content %}
   <div class="grid">
     <div>
       <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-          <h2 style="margin:0">{{ post.title }}</h2>
-          <span class="badge">{{ post.publish_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        <h2 style="margin:0">{{ post.title }}</h2>
+        <div class="meta" style="margin-top:6px">
+          Publicado: {{ post.publish_at.strftime("%Y-%m-%d %H:%M") }} · {{ post.views }} lecturas
         </div>
-        <div class="muted" style="margin-top:6px">{{ post.views }} views · /p/{{ post.slug }}</div>
 
         {% if post.tags %}
-          <div class="pills" style="margin-top:8px">
+          <div style="margin-top:8px">
             {% for t in post.tags %}
-              <a href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
+              <a class="tag" href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
             {% endfor %}
           </div>
         {% endif %}
 
-        <p style="white-space: pre-wrap; margin-top:12px">{{ post.content }}</p>
+        <div style="margin-top:12px; white-space: pre-wrap;">{{ post.content }}</div>
       </div>
 
-      <div class="card">
+      <div class="card" style="margin-top:16px">
         <h3 style="margin-top:0">Comentarios</h3>
         {% for c in comments %}
-          <div style="padding:12px; border:1px solid #e5e7eb; border-radius:12px; margin:12px 0; background:#fafafa;">
-            <strong>{{ c.author }}</strong>
-            <div class="muted">{{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
-            <div style="white-space: pre-wrap; margin-top:8px">{{ c.body }}</div>
+          <div style="padding:10px; border-bottom:1px solid #eef2f7;">
+            <strong>{{ c.author }}</strong> <span class="meta">· {{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+            <div style="white-space: pre-wrap; margin-top:6px">{{ c.body }}</div>
           </div>
         {% else %}
-          <p class="muted">Sé el primero en comentar.</p>
+          <p class="meta">Aún no hay comentarios.</p>
         {% endfor %}
       </div>
 
-      <div class="card">
+      <div class="card" style="margin-top:16px">
         <h3 style="margin-top:0">Deja un comentario</h3>
         <form method="post">
           {{ form.csrf_token }}
@@ -44,9 +42,9 @@
           <label>Comentario</label>
           {{ form.body() }}
           <div style="height:10px"></div>
-          <button type="submit">Publicar</button>
+          <button class="btn" type="submit">Enviar</button>
         </form>
-        <div class="muted" style="margin-top:10px">CSRF protegido con Flask-WTF.</div>
+        <div class="meta" style="margin-top:10px">El formulario está protegido con CSRF (Flask-WTF).</div>
       </div>
     </div>
 

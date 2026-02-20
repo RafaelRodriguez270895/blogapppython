@@ -2,27 +2,27 @@ import os
 import random
 from datetime import datetime, timedelta
 
-from flask import Flask, render_template, request, redirect, url_for, flash, abort, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from forms import LoginForm, PostForm, CommentForm, ModerateCommentForm, SearchForm
+from forms import LoginForm, PostForm, CommentForm, ModerateCommentForm
 
 app = Flask(__name__)
 
-# demo default (hallazgo típico si se deja así)
+# Demo default (típico hallazgo si no se cambia en prod)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:////data/blog.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# límites (DoS suave)
+# DoS suave: evita requests enormes
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1MB
 
-# cookies hardening (ideal con HTTPS)
+# Cookies hardening (mejor detrás de HTTPS)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# app.config["SESSION_COOKIE_SECURE"] = True  # activa si usas HTTPS
+# app.config["SESSION_COOKIE_SECURE"] = True  # activar si usas HTTPS
 
 db = SQLAlchemy(app)
 
@@ -30,7 +30,6 @@ login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
 
-# many-to-many: posts <-> tags (vintage)
 post_tags = db.Table(
     "post_tags",
     db.Column("post_id", db.Integer, db.ForeignKey("post.id"), primary_key=True),
@@ -42,7 +41,6 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
-    # Flask-Login compatibility (old style)
     def get_id(self): return str(self.id)
     @property
     def is_authenticated(self): return True
@@ -72,7 +70,6 @@ class Post(db.Model):
 
     tags = db.relationship("Tag", secondary=post_tags, lazy="subquery",
                            backref=db.backref("posts", lazy=True))
-
     comments = db.relationship("Comment", backref="post", cascade="all, delete-orphan")
 
 class Comment(db.Model):
@@ -83,7 +80,6 @@ class Comment(db.Model):
     is_approved = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# limits (validación)
 MAX_AUTHOR_LEN = 60
 MAX_COMMENT_LEN = 1000
 MAX_TITLE_LEN = 180
@@ -106,7 +102,7 @@ def simple_slugify(s):
         slug = slug.replace("--", "-")
     return slug.strip("-") or "post"
 
-def excerpt(text, n=260):
+def excerpt(text, n=240):
     text = (text or "").strip()
     return text if len(text) <= n else (text[:n].rstrip() + "...")
 
@@ -140,7 +136,7 @@ def visible_post_query():
             .filter(Post.status == "published")
             .filter(Post.publish_at <= now_utc()))
 
-def paginate(query, page, per_page=10):
+def paginate(query, page, per_page=8):
     total = query.count()
     pages = max((total + per_page - 1) // per_page, 1)
     page = max(min(page, pages), 1)
@@ -168,22 +164,50 @@ def initdb():
         print("Created admin user: admin")
         print("Admin password:", pw)
 
-LOREM = [
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor.",
-    "Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet.",
-    "Duis sagittis ipsum. Praesent mauris. Fusce nec tellus sed augue semper porta. Mauris massa.",
-    "Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.",
-    "Curabitur sodales ligula in libero. Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh.",
-    "Aenean quam. In scelerisque sem at dolor. Maecenas mattis. Sed convallis tristique sem.",
+TOPICS = [
+    "prevención", "nutrición", "salud mental", "cardiología", "diabetes",
+    "dermatología", "pediatría", "ejercicio", "sueño", "vacunas",
+    "primeros auxilios", "salud pública", "hipertensión", "hábitos"
 ]
-TOPICS = ["rails", "docker", "seguridad", "logs", "nginx", "aws", "kali", "pki", "tls", "devops", "auditoria", "cicd", "hardening", "backups"]
+TITLES = [
+    "Guía práctica: hábitos saludables que sí sostienen",
+    "Sueño y salud: 7 ajustes simples para descansar mejor",
+    "Nutrición básica: plato balanceado sin complicarte",
+    "Hipertensión: señales, medición en casa y mitos comunes",
+    "Diabetes tipo 2: prevención y seguimiento en el día a día",
+    "Salud mental: estrategias de autocuidado (sin romantizar)",
+    "Ejercicio para principiantes: empezar sin lesionarte",
+    "Vacunas: cómo pensar en riesgo y beneficio (explicado fácil)",
+    "Primeros auxilios: lo que conviene tener en casa",
+    "Dermatología: cuidado de piel básico para clima tropical",
+]
+PARA = [
+    "Este artículo es informativo y no reemplaza una consulta médica. Si tienes síntomas, dolor fuerte, fiebre persistente o dudas, consulta a un profesional.",
+    "En salud, lo que funciona suele ser lo que puedes mantener: pequeñas mejoras, consistentes, con seguimiento y ajuste.",
+    "Si vas a cambiar medicación, dieta o rutinas por una condición médica, es mejor hacerlo con guía profesional y monitoreo.",
+    "Un buen enfoque: define objetivo, mide una línea base, cambia una variable a la vez y revisa resultados cada 2–4 semanas.",
+    "Recuerda el contexto: edad, antecedentes familiares, sueño, estrés, actividad y alimentación afectan el resultado."
+]
+LISTS = [
+    ["Hidrátate de forma regular (sin extremos).","Incluye proteína en comidas principales.","Camina 20–30 min, 4–5 días/semana.","Evita “todo o nada”: apunta a constancia.","Haz chequeos si tienes antecedentes familiares."],
+    ["Rutina de sueño consistente (hora fija).","Luz solar en la mañana 10–15 min.","Pantallas fuera 60 min antes de dormir.","Cafeína solo temprano.","Cuarto fresco y oscuro."],
+    ["Aprende a leer etiquetas simples.","Aumenta fibra (frutas, vegetales, legumbres).","Reduce ultraprocesados gradualmente.","No ‘demonices’ grupos enteros de alimentos.","Planifica snacks sencillos (yogurt, fruta, nueces)."],
+]
 
-def rand_title():
-    a, b, c = random.sample(TOPICS, 3)
-    return f"{a.title()}: {b.title()} y {c.title()}"
-
-def rand_body(paragraphs=7):
-    return "\n\n".join(random.choice(LOREM) for _ in range(paragraphs))
+def make_post_body():
+    parts = []
+    parts.append(PARA[0])
+    parts.append("")
+    parts.append("## Resumen")
+    parts.append(random.choice(PARA[1:]))
+    parts.append("")
+    parts.append("## Puntos clave")
+    for bullet in random.choice(LISTS):
+        parts.append(f"- {bullet}")
+    parts.append("")
+    parts.append("## Nota final")
+    parts.append("Si quieres, lleva un registro (presión, sueño, pasos, glucosa si aplica) y revisa tendencias. Lo importante es el progreso, no la perfección.")
+    return "\n".join(parts)
 
 @app.cli.command("seed")
 def seed():
@@ -193,8 +217,8 @@ def seed():
         print("Seed skipped (already has data).")
         return
 
-    for i in range(20):
-        title = rand_title()
+    for i in range(18):
+        title = TITLES[i % len(TITLES)]
         slug = simple_slugify(title)
         base = slug
         n = 2
@@ -202,37 +226,28 @@ def seed():
             slug = f"{base}-{n}"
             n += 1
 
-        status = "published" if i % 5 != 0 else "draft"
-        publish_at = now_utc() - timedelta(days=random.randint(0, 120))
-        if i in (3, 9):
-            publish_at = now_utc() + timedelta(days=random.randint(1, 14))
+        status = "published" if i % 6 != 0 else "draft"
+        publish_at = now_utc() - timedelta(days=random.randint(0, 150))
+        if i in (2, 11):
+            publish_at = now_utc() + timedelta(days=random.randint(2, 12))  # scheduled
 
-        p = Post(
-            title=title,
-            slug=slug,
-            content=rand_body(paragraphs=random.randint(4, 10)),
-            status=status,
-            publish_at=publish_at,
-            created_at=publish_at,
-            updated_at=publish_at,
-        )
+        p = Post(title=title, slug=slug, content=make_post_body(),
+                 status=status, publish_at=publish_at,
+                 created_at=publish_at, updated_at=publish_at)
         p.tags = upsert_tags(random.sample(TOPICS, k=random.randint(2, 4)))
         db.session.add(p)
         db.session.flush()
 
-        for _ in range(random.randint(0, 6)):
-            c = Comment(
-                post_id=p.id,
-                author=random.choice(["Ana", "Luis", "Carlos", "María", "DevOpsBot", "Guest", "Admin"]),
-                body=rand_body(paragraphs=random.randint(1, 2)),
-                is_approved=(random.randint(0, 8) != 0)
-            )
+        for _ in range(random.randint(0, 5)):
+            c = Comment(post_id=p.id,
+                        author=random.choice(["Paciente", "Visitante", "Ana", "Luis", "ClínicaXYZ", "Admin"]),
+                        body="Gracias por el artículo. Muy claro. ¿Recomiendas algún recurso adicional para profundizar?",
+                        is_approved=(random.randint(0, 10) != 0))
             db.session.add(c)
 
     db.session.commit()
-    print("Seeded posts, tags and comments.")
+    print("Seeded medical posts, tags and comments.")
 
-# ---- Public ----
 @app.route("/")
 def index():
     page = request.args.get("page", "1")
@@ -240,13 +255,22 @@ def index():
     except ValueError: page = 1
 
     q = visible_post_query()
-    posts, page, pages, total = paginate(q, page, per_page=10)
+    posts, page, pages, total = paginate(q, page, per_page=8)
 
     latest = visible_post_query().limit(6).all()
-    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(18).all()
+    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(24).all()
+
+    # archive links (last 6 months)
+    months = []
+    today = now_utc().replace(day=1)
+    cur = today
+    for _ in range(6):
+        y, m = cur.year, cur.month
+        months.append((y, m))
+        cur = (cur - timedelta(days=1)).replace(day=1)
 
     return render_template("index.html", posts=posts, page=page, pages=pages, total=total,
-                           latest=latest, tag_cloud=tag_cloud)
+                           latest=latest, tag_cloud=tag_cloud, months=months)
 
 @app.route("/p/<slug>", methods=["GET", "POST"])
 def post_view(slug):
@@ -270,7 +294,7 @@ def post_view(slug):
 
         db.session.add(Comment(post_id=post.id, author=author, body=body, is_approved=True))
         db.session.commit()
-        flash("Comentario publicado.", "ok")
+        flash("Comentario enviado (puede pasar a moderación).", "ok")
         return redirect(url_for("post_view", slug=slug))
 
     comments = (Comment.query
@@ -278,7 +302,7 @@ def post_view(slug):
                 .order_by(Comment.created_at.asc()).all())
 
     latest = visible_post_query().limit(6).all()
-    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(18).all()
+    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(24).all()
 
     return render_template("post.html", post=post, comments=comments, latest=latest, tag_cloud=tag_cloud, form=form)
 
@@ -289,14 +313,11 @@ def tag_view(name):
     except ValueError: page = 1
 
     tag = Tag.query.filter_by(name=name.lower()).first_or_404()
-    q = (visible_post_query()
-         .join(post_tags).join(Tag)
-         .filter(Tag.id == tag.id))
-
-    posts, page, pages, total = paginate(q, page, per_page=10)
+    q = (visible_post_query().join(post_tags).join(Tag).filter(Tag.id == tag.id))
+    posts, page, pages, total = paginate(q, page, per_page=8)
 
     latest = visible_post_query().limit(6).all()
-    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(18).all()
+    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(24).all()
 
     return render_template("tag.html", tag=tag, posts=posts, page=page, pages=pages, total=total,
                            latest=latest, tag_cloud=tag_cloud)
@@ -313,9 +334,9 @@ def search():
         like = f"%{qstr}%"
         q = q.filter((Post.title.like(like)) | (Post.content.like(like)))
 
-    posts, page, pages, total = paginate(q, page, per_page=10)
+    posts, page, pages, total = paginate(q, page, per_page=8)
     latest = visible_post_query().limit(6).all()
-    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(18).all()
+    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(24).all()
 
     return render_template("search.html", q=qstr, posts=posts, page=page, pages=pages, total=total,
                            latest=latest, tag_cloud=tag_cloud)
@@ -330,10 +351,10 @@ def archive(year, month):
     end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
 
     q = visible_post_query().filter(Post.publish_at >= start).filter(Post.publish_at < end)
-    posts, page, pages, total = paginate(q, page, per_page=10)
+    posts, page, pages, total = paginate(q, page, per_page=8)
 
     latest = visible_post_query().limit(6).all()
-    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(18).all()
+    tag_cloud = Tag.query.order_by(Tag.name.asc()).limit(24).all()
 
     return render_template("archive.html", year=year, month=month, posts=posts, page=page, pages=pages, total=total,
                            latest=latest, tag_cloud=tag_cloud)
@@ -362,9 +383,9 @@ def feed():
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>Blog Demo</title>
+    <title>Blog Médico - Demo</title>
     <link>{esc(site + url_for('index'))}</link>
-    <description>RSS feed (old-school) - Blog Demo</description>
+    <description>Contenido educativo. No sustituye consulta médica.</description>
     <language>es</language>
     {''.join(items)}
   </channel>
@@ -372,7 +393,6 @@ def feed():
 """
     return Response(xml, mimetype="application/rss+xml; charset=utf-8")
 
-# ---- Auth ----
 @app.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()
@@ -395,7 +415,6 @@ def logout():
     flash("Sesión cerrada.", "ok")
     return redirect(url_for("index"))
 
-# ---- Admin ----
 @app.route("/admin")
 @login_required
 def admin_posts():
@@ -415,6 +434,10 @@ def admin_new_post():
         publish_at = form.publish_at.data or now_utc()
         tags = parse_tags(form.tags.data)
 
+        if len(title) > MAX_TITLE_LEN or len(slug) > MAX_SLUG_LEN or len(content) > MAX_POST_LEN:
+            flash("Campos demasiado largos.", "error")
+            return redirect(url_for("admin_new_post"))
+
         base = slug
         i = 2
         while Post.query.filter_by(slug=slug).first():
@@ -424,12 +447,10 @@ def admin_new_post():
         p = Post(title=title, slug=slug, content=content, status=status, publish_at=publish_at,
                  created_at=now_utc(), updated_at=now_utc())
         p.tags = upsert_tags(tags)
-
         db.session.add(p)
         db.session.commit()
         flash("Post creado.", "ok")
         return redirect(url_for("admin_posts"))
-
     return render_template("admin_edit.html", mode="new", form=form)
 
 @app.route("/admin/edit/<int:post_id>", methods=["GET", "POST"])
@@ -437,6 +458,7 @@ def admin_new_post():
 def admin_edit_post(post_id):
     post = Post.query.get_or_404(post_id)
     form = PostForm(obj=post)
+
     if request.method == "GET":
         form.slug.data = post.slug
         form.tags.data = ", ".join([t.name for t in post.tags])
@@ -451,6 +473,10 @@ def admin_edit_post(post_id):
         publish_at = form.publish_at.data or now_utc()
         tags = parse_tags(form.tags.data)
 
+        if len(title) > MAX_TITLE_LEN or len(slug) > MAX_SLUG_LEN or len(content) > MAX_POST_LEN:
+            flash("Campos demasiado largos.", "error")
+            return redirect(url_for("admin_edit_post", post_id=post.id))
+
         existing = Post.query.filter_by(slug=slug).first()
         if existing and existing.id != post.id:
             flash("Ese slug ya existe.", "error")
@@ -463,8 +489,8 @@ def admin_edit_post(post_id):
         post.publish_at = publish_at
         post.updated_at = now_utc()
         post.tags = upsert_tags(tags)
-
         db.session.commit()
+
         flash("Post actualizado.", "ok")
         return redirect(url_for("admin_posts"))
 
@@ -503,11 +529,6 @@ def admin_comments():
     pending = Comment.query.filter_by(is_approved=False).order_by(Comment.created_at.desc()).limit(200).all()
     recent = Comment.query.filter_by(is_approved=True).order_by(Comment.created_at.desc()).limit(50).all()
     return render_template("admin_comments.html", pending=pending, recent=recent, form=form)
-
-# ---- Errors ----
-@app.errorhandler(403)
-def forbidden(e):
-    return render_template("error.html", code=403, message="Acceso denegado."), 403
 
 @app.errorhandler(404)
 def not_found(e):
