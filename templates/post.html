@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} - Blog Médico{% endblock %}
+{% block content %}
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2 style="margin:0">{{ post.title }}</h2>
+        <div class="meta" style="margin-top:6px">
+          Publicado: {{ post.publish_at.strftime("%Y-%m-%d %H:%M") }} · {{ post.views }} lecturas
+        </div>
+
+        {% if post.tags %}
+          <div style="margin-top:8px">
+            {% for t in post.tags %}
+              <a class="tag" href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div style="margin-top:12px; white-space: pre-wrap;">{{ post.content }}</div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Comentarios</h3>
+        {% for c in comments %}
+          <div style="padding:10px; border-bottom:1px solid #eef2f7;">
+            <strong>{{ c.author }}</strong> <span class="meta">· {{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+            <div style="white-space: pre-wrap; margin-top:6px">{{ c.body }}</div>
+          </div>
+        {% else %}
+          <p class="meta">Aún no hay comentarios.</p>
+        {% endfor %}
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Deja un comentario</h3>
+        <form method="post">
+          {{ form.csrf_token }}
+          <label>Nombre</label>
+          {{ form.author() }}
+          <div style="height:10px"></div>
+          <label>Comentario</label>
+          {{ form.body() }}
+          <div style="height:10px"></div>
+          <button class="btn" type="submit">Enviar</button>
+        </form>
+        <div class="meta" style="margin-top:10px">El formulario está protegido con CSRF (Flask-WTF).</div>
+      </div>
+    </div>
+
+    {% include "_sidebar.html" %}
+  </div>
+{% endblock %}

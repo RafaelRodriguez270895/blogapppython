@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Login - Blog Médico{% endblock %}
+{% block content %}
+  <div class="card" style="max-width:520px; margin: 0 auto;">
+    <h2 style="margin-top:0">Login</h2>
+    <div class="meta">Acceso al panel administrativo.</div>
+    <div style="height:10px"></div>
+    <form method="post">
+      {{ form.csrf_token }}
+      <label>Usuario</label>
+      {{ form.username(autocomplete="username") }}
+      <div style="height:10px"></div>
+      <label>Contraseña</label>
+      {{ form.password(autocomplete="current-password") }}
+      <div style="height:10px"></div>
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+  </div>
+{% endblock %}

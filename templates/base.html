@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Blog Médico{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="{{ url_for('feed') }}">
+  <style>
+    :root{
+      --bg:#f2f5f7; --card:#ffffff; --text:#1f2a37; --muted:#64748b;
+      --border:#dbe3ea; --brand:#1f7a8c; --brand2:#2a9d8f; --warning:#b45309;
+      --shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family: Arial, Helvetica, sans-serif; }
+    .topbar{ background:#ffffff; border-bottom: 3px solid var(--brand); }
+    .wrap{ max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    .brand{ display:flex; align-items:center; justify-content:space-between; padding: 14px 0; }
+    .logo{ display:flex; align-items:center; gap:10px; font-weight:bold; font-size: 20px; }
+    .dot{ width:12px; height:12px; border-radius:50%; background:var(--brand2); display:inline-block; }
+    nav a{ color: var(--brand); text-decoration:none; margin-left: 14px; font-size: 14px; }
+    nav a:hover{ text-decoration: underline; }
+    .hero{
+      margin: 18px 0 0 0; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      border:1px solid var(--border); box-shadow: var(--shadow); padding: 16px;
+    }
+    .hero h1{ margin:0; font-family: Georgia, "Times New Roman", serif; font-size: 30px; color:#0f172a;}
+    .hero p{ margin:6px 0 0 0; color: var(--muted); }
+    .grid{ display:grid; grid-template-columns: 2.2fr 1fr; gap:16px; margin-top: 16px; }
+    .card{ background:var(--card); border:1px solid var(--border); box-shadow: var(--shadow); padding: 14px 14px; }
+    h2,h3{ font-family: Georgia, "Times New Roman", serif; }
+    .meta{ color: var(--muted); font-size: 13px; }
+    .tag{ display:inline-block; font-size: 12px; padding: 3px 8px; border:1px solid var(--border);
+          background:#f8fafc; color: var(--brand); text-decoration:none; margin: 6px 6px 0 0; }
+    .tag:hover{ background:#eef6f8; text-decoration:none; }
+    a{ color: var(--brand); }
+    .btn{ display:inline-block; padding:8px 12px; border:1px solid var(--border); background:#fff; cursor:pointer;
+          text-decoration:none; color: var(--text); }
+    .btn:hover{ background:#f1f5f9; }
+    input[type=text], input[type=password], textarea, select{
+      width:100%; padding:10px; border:1px solid var(--border); box-sizing:border-box;
+      font-family: inherit; background:#fff;
+    }
+    textarea{ min-height: 170px; }
+    .flash-ok{ background:#e8fff0; border:1px solid #b8f5cd; padding:10px; }
+    .flash-err{ background:#fff1f1; border:1px solid #ffcccc; padding:10px; }
+    .disclaimer{ background:#fff7ed; border:1px solid #fed7aa; padding:10px; color: var(--warning); font-size: 13px; }
+    .pagination{ text-align:center; }
+    .pagination a{ margin: 0 10px; }
+    table{ width:100%; border-collapse: collapse; }
+    th, td{ padding:10px; border-bottom:1px solid #eef2f7; text-align:left; vertical-align:top; }
+    @media (max-width: 900px){ .grid{ grid-template-columns:1fr; } nav{ display:none; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="wrap brand">
+      <div class="logo"><span class="dot"></span> Blog Médico <span class="meta">· guía educativa</span></div>
+      <nav>
+        <a href="{{ url_for('index') }}">Inicio</a>
+        <a href="{{ url_for('search') }}">Buscar</a>
+        <a href="{{ url_for('feed') }}">RSS</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('admin_posts') }}">Admin</a>
+          <form method="post" action="{{ url_for('logout') }}" style="display:inline; margin-left:14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn" style="padding:4px 8px; font-size:13px;">Salir</button>
+          </form>
+        {% else %}
+          <a href="{{ url_for('login') }}">Login</a>
+        {% endif %}
+      </nav>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <h1>Salud práctica para el día a día</h1>
+      <p>Contenido educativo (estilo blog 2014–2016). No sustituye consulta médica.</p>
+    </div>
+
+    <div class="disclaimer" style="margin-top:12px">
+      Aviso: este sitio es una demo. La información es general y no reemplaza diagnóstico, tratamiento ni emergencias.
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin-top:14px">
+          {% for cat, msg in messages %}
+            <div class="{{ 'flash-ok' if cat=='ok' else 'flash-err' }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <main style="margin-top: 16px">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="meta" style="margin: 22px 0">
+      Demo educativa · DB en <code>/data/blog.db</code> · RSS en <code>/feed.xml</code>
+    </footer>
+  </div>
+</body>
+</html>

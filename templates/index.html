@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Inicio - Blog Médico{% endblock %}
+{% block content %}
+  <div class="grid">
+    <div>
+      {% for p in posts %}
+        <div class="card" style="margin-bottom:16px">
+          <h2 style="margin:0"><a href="{{ url_for('post_view', slug=p.slug) }}">{{ p.title }}</a></h2>
+          <div class="meta" style="margin-top:6px">
+            Publicado: {{ p.publish_at.strftime("%Y-%m-%d") }} · {{ p.views }} lecturas
+          </div>
+
+          {% if p.tags %}
+            <div style="margin-top:8px">
+              {% for t in p.tags %}
+                <a class="tag" href="{{ url_for('tag_view', name=t.name) }}">{{ t.name }}</a>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <p style="white-space: pre-wrap; margin-top:10px">{{ excerpt(p.content, 240) }}</p>
+          <a class="btn" href="{{ url_for('post_view', slug=p.slug) }}">Leer artículo</a>
+        </div>
+      {% else %}
+        <div class="card"><p>No hay artículos publicados aún.</p></div>
+      {% endfor %}
+
+      <div class="card pagination">
+        <div class="meta">Página {{ page }} de {{ pages }} · Total: {{ total }}</div>
+        <div style="margin-top:10px;">
+          {% if page > 1 %}<a href="{{ url_for('index', page=page-1) }}">← Anterior</a>{% endif %}
+          {% if page < pages %}<a href="{{ url_for('index', page=page+1) }}">Siguiente →</a>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% include "_sidebar.html" %}
+  </div>
+{% endblock %}

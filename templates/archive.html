@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Archivo {{ year }}-{{ "%02d"|format(month) }} - Blog Médico{% endblock %}
+{% block content %}
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2 style="margin:0">Archivo: {{ year }}-{{ "%02d"|format(month) }}</h2>
+        <div class="meta">Artículos publicados en este mes.</div>
+      </div>
+
+      {% for p in posts %}
+        <div class="card" style="margin-top:16px">
+          <h3 style="margin:0"><a href="{{ url_for('post_view', slug=p.slug) }}">{{ p.title }}</a></h3>
+          <div class="meta" style="margin-top:6px">{{ p.publish_at.strftime("%Y-%m-%d") }}</div>
+          <p style="white-space: pre-wrap; margin-top:10px">{{ excerpt(p.content, 240) }}</p>
+        </div>
+      {% else %}
+        <div class="card" style="margin-top:16px"><p class="meta">No hay artículos en este mes.</p></div>
+      {% endfor %}
+
+      <div class="card pagination" style="margin-top:16px">
+        <div class="meta">Página {{ page }} de {{ pages }} · Total: {{ total }}</div>
+        <div style="margin-top:10px;">
+          {% if page > 1 %}<a href="{{ url_for('archive', year=year, month=month, page=page-1) }}">← Anterior</a>{% endif %}
+          {% if page < pages %}<a href="{{ url_for('archive', year=year, month=month, page=page+1) }}">Siguiente →</a>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% include "_sidebar.html" %}
+  </div>
+{% endblock %}

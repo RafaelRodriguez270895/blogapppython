@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Admin - Redirección{% endblock %}
+{% block content %}
+  <div class="card">
+    <h2 style="margin-top:0">Plantilla legada</h2>
+    <p>Esta plantilla antigua se conserva solo por compatibilidad visual.</p>
+    <p><a class="btn" href="{{ url_for('admin_posts') }}">Ir al panel admin actual</a></p>
+  </div>
+{% endblock %}
